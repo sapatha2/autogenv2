@@ -10,7 +10,7 @@ import pyscf
 import pyscf.lo
 import pyscf.pbc
 import pyscf.pbc.dft
-import downfold_tools as dt
+#import downfold_tools as dt
 from collections import Counter
 
 ##########################################################################################################
@@ -60,7 +60,10 @@ def crystal2pyscf_mol(propoutfn="prop.in.o",
 def crystal2pyscf_cell(
     gred="GRED.DAT",
     kred="KRED.DAT",
-    cryoutfn="prop.in.o",
+    totspin=0.0,
+    netcharge=0.0,
+    nelectron=0.0,
+    #cryoutfn="prop.in.o",
     basis='bfd_vtz',
     mesh=(16,16,16),
     basis_order=None):
@@ -79,7 +82,7 @@ def crystal2pyscf_cell(
   info, crylat_parm, cryions, crybasis, crypseudo = read_gred(gred=gred)
   cryeigsys = read_kred(info,crybasis,kred=kred)
 
-  totspin=read_outputfile(cryoutfn)
+  #totspin=read_outputfile(cryoutfn)
   ntot=int(round(sum(crybasis['charges'])))
   nmo=int(round(sum(crybasis['nao_shell'])))
   nup=int(round(0.5*(ntot + totspin)))
@@ -92,8 +95,11 @@ def crystal2pyscf_cell(
     ]
 
   cell=pyscf.pbc.gto.Cell()
+  #cell.build(atom=atom,a=crylat_parm['latvecs'],unit='bohr',
+  #    mesh=mesh,basis=basis,ecp='bfd',verbose=1,spin=(nup-ndn),charge=netcharge)
   cell.build(atom=atom,a=crylat_parm['latvecs'],unit='bohr',
-      mesh=mesh,basis=basis,ecp='bfd',verbose=1)
+	basis=basis,ecp='bfd',verbose=1,spin=(nup-ndn),charge=netcharge)
+  cell.nelectron=nelectron
 
   # Get kpoints that PySCF expects.
   # TODO only Gamma for now.
