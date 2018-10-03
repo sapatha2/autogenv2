@@ -4,10 +4,12 @@ Some simple tests to check that autogen runs without erroring out.
 Run repeatedly to check if runner is also checking queued items correctly.
 '''
 
-from autogenv2 import manager,autopyscf,autorunner,crystal
+from autogenv2 import autopyscf,autorunner,crystal
 from crystal import CrystalWriter
-from autopyscf import PySCFWriter,PySCFPBCWriter
-from manager import PySCFManager,CrystalManager,QWalkManager
+from autopyscf import PySCFWriter,PySCFPBCWriter,dm_set_spins
+from pyscfmanager import PySCFManager
+from crystalmanager import CrystalManager
+from qwalkmanager import QWalkManager
 from autorunner import PySCFRunnerLocal,PySCFRunnerPBS,RunnerPBS
 from variance import VarianceWriter,VarianceReader
 from linear import LinearWriter,LinearReader
@@ -24,8 +26,8 @@ h2stretch='\n'.join([
     'H 0.0 0.0 1.4'
   ])
 
-def h2_tests():
-  ''' Simple tests that check PySCF and queue interaction.'''
+def h2_test_local():
+  ''' Simple test that checks PySCF using PySCFRunnerLocal.'''
 
   # Most basic possible job.
   eqwriter=PySCFWriter({'xyz':h2})
@@ -36,20 +38,25 @@ def h2_tests():
       runner=PySCFRunnerLocal()
     )
 
+  return [eqman]
+
+def h2_test_PBS():
+  ''' Simple tests that check PySCF and queue interaction.'''
+
   # Change some options and run with PBS.
   stwriter=PySCFWriter({
       'xyz':h2stretch,
       'method':'UKS',
-      'dm_generator':autopyscf.dm_set_spins([1,-1],[]),
+      'dm_generator':dm_set_spins([1,-1],[]),
     })
   stman=PySCFManager(
       name='scf',
       path='h2stretch',
       writer=stwriter,
-      runner=PySCFRunnerPBS(nn=1,walltime='0:05:00',np=16,queue='secondary',ppath=sys.path),
+      runner=PySCFRunnerPBS(nn=1,walltime='0:05:00',np=16,queue='secondary'),
     )
 
-  return [eqman,stman]
+  return [stman]
 
 def si_crystal_test():
   ''' Simple tests that check PBC is working Crystal, and that QMC can be performed on the result.'''
@@ -57,10 +64,11 @@ def si_crystal_test():
 
   cwriter=CrystalWriter({
       'xml_name':'../BFD_Library.xml',
+      'cutoff':0.2,
       'kmesh':(4,4,4),
     })
   cwriter.set_struct_fromcif(open('si.cif','r').read(),primitive=True)
-  cwriter.set_options({'symmetry':True})
+  cwriter.set_options({})
 
   cman=CrystalManager(
       name='crys',
@@ -132,8 +140,7 @@ def si_pyscf_test():
           queue='secondary',
           nn=1,
           np=16,
-          walltime='4:00:00',
-          ppath=sys.path
+          walltime='4:00:00'
         )
     )
   jobs.append(pman)
@@ -169,11 +176,12 @@ def mno_test():
   jobs=[]
   cwriter=CrystalWriter({
       'xml_name':'../BFD_Library.xml',
+      'cutoff':0.2,
       'kmesh':(4,4,4),
       'total_spin':4
     })
   cwriter.set_struct_fromcif(open('mno.cif','r').read(),primitive=True)
-  cwriter.set_options({'symmetry':True})
+  cwriter.set_options({})
 
   cman=CrystalManager(
       name='crys',
@@ -230,7 +238,8 @@ def mno_test():
 def run_tests():
   ''' Choose which tests to run and execute `nextstep()`.'''
   jobs=[]
-  jobs+=h2_tests()
+  jobs+=h2_test_local()
+  jobs+=h2_test_PBS()
   jobs+=si_crystal_test()
   jobs+=si_pyscf_test()
   jobs+=mno_test()
